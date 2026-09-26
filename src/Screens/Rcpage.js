@@ -122,6 +122,8 @@ const Rcpage = ({navigation, route}) => {
 
   // Image states
   const [customerPhoto, setCustomerPhoto] = useState(null);
+  const [rcFrontPhoto, setRcFrontPhoto] = useState(null);
+  const [rcBackPhoto, setRcBackPhoto] = useState(null);
   const [customerSignature, setCustomerSignature] = useState(null);
   const [managerSignature, setManagerSignature] = useState(null);
 
@@ -211,6 +213,20 @@ const Rcpage = ({navigation, route}) => {
               uri: editData.customer_photo,
               type: 'image/jpeg',
               name: 'customer_photo.jpg',
+            });
+          }
+          if (editData.rc_front_photo) {
+            setRcFrontPhoto({
+              uri: editData.rc_front_photo,
+              type: 'image/jpeg',
+              name: 'rc_front_photo.jpg',
+            });
+          }
+          if (editData.rc_back_photo) {
+            setRcBackPhoto({
+              uri: editData.rc_back_photo,
+              type: 'image/jpeg',
+              name: 'rc_back_photo.jpg',
             });
           }
           if (editData.customer_signature) {
@@ -443,8 +459,6 @@ const Rcpage = ({navigation, route}) => {
         setCustomerOtpVerified(true);
         setShowCustomerOtpModal(false);
         setCustomerOtp('');
-        // Now allow customer signature upload
-        showImagePickerOptions(setCustomerSignature);
         Alert.alert('Success', 'OTP verified successfully');
       } else {
         Alert.alert('Failed', response.data.message || 'Invalid OTP');
@@ -524,8 +538,6 @@ const Rcpage = ({navigation, route}) => {
         setManagerOtpVerified(true);
         setShowManagerOtpModal(false);
         setManagerOtp('');
-        // Now allow manager signature upload
-        showImagePickerOptions(setManagerSignature);
         Alert.alert('Success', 'OTP verified successfully');
       } else {
         Alert.alert('Failed', response.data.message || 'Invalid OTP');
@@ -1018,48 +1030,6 @@ const Rcpage = ({navigation, route}) => {
       return false;
     }
 
-    // OTP verification check for signatures
-    if (!isEditMode) {
-      // For new forms, both signatures must be uploaded
-      if (!customerSignature && !customerOtpVerified) {
-        Alert.alert(
-          'Verification Required',
-          'Please verify customer OTP and upload signature',
-        );
-        return false;
-      }
-      if (!managerSignature && !managerOtpVerified) {
-        Alert.alert(
-          'Verification Required',
-          'Please verify manager OTP and upload signature',
-        );
-        return false;
-      }
-    } else {
-      // For edit mode, if new signatures are being uploaded, they must be OTP verified
-      // (existing signatures are already marked as verified)
-      if (customerSignature && !customerOtpVerified) {
-        // Check if it's a new signature (has uri property)
-        if (customerSignature.uri && !customerOtpVerified) {
-          Alert.alert(
-            'Verification Required',
-            'Customer signature requires OTP verification',
-          );
-          return false;
-        }
-      }
-      if (managerSignature && !managerOtpVerified) {
-        // Check if it's a new signature (has uri property)
-        if (managerSignature.uri && !managerOtpVerified) {
-          Alert.alert(
-            'Verification Required',
-            'Manager signature requires OTP verification',
-          );
-          return false;
-        }
-      }
-    }
-
     // Make images optional for updates, required for new forms
     if (!isEditMode) {
       if (!customerPhoto) {
@@ -1067,15 +1037,6 @@ const Rcpage = ({navigation, route}) => {
         return false;
       }
 
-      if (!customerSignature) {
-        Alert.alert('Validation Error', 'Please add customer signature');
-        return false;
-      }
-
-      if (!managerSignature) {
-        Alert.alert('Validation Error', 'Please add manager signature');
-        return false;
-      }
     }
 
     return true;
@@ -1210,29 +1171,20 @@ const Rcpage = ({navigation, route}) => {
       }
     }
 
-    if (customerSignature) {
-      if (customerSignature.uri) {
-        formDataToSend.append('customer_signature', {
-          uri: customerSignature.uri,
-          type: customerSignature.type || 'image/jpeg',
-          name:
-            customerSignature.name || `customer_signature_${Date.now()}.jpg`,
-        });
-      } else {
-        formDataToSend.append('customer_signature', customerSignature);
-      }
+    if (rcFrontPhoto) {
+      formDataToSend.append('rc_front_photo', {
+        uri: rcFrontPhoto.uri,
+        type: rcFrontPhoto.type || 'image/jpeg',
+        name: rcFrontPhoto.name || `rc_front_photo_${Date.now()}.jpg`,
+      });
     }
 
-    if (managerSignature) {
-      if (managerSignature.uri) {
-        formDataToSend.append('manager_signature', {
-          uri: managerSignature.uri,
-          type: managerSignature.type || 'image/jpeg',
-          name: managerSignature.name || `manager_signature_${Date.now()}.jpg`,
-        });
-      } else {
-        formDataToSend.append('manager_signature', managerSignature);
-      }
+    if (rcBackPhoto) {
+      formDataToSend.append('rc_back_photo', {
+        uri: rcBackPhoto.uri,
+        type: rcBackPhoto.type || 'image/jpeg',
+        name: rcBackPhoto.name || `rc_back_photo_${Date.now()}.jpg`,
+      });
     }
 
     console.log('Form Data Prepared:', {
@@ -1400,6 +1352,8 @@ const Rcpage = ({navigation, route}) => {
     setPaymentStatus('paid');
     setPaymentRemarks('');
     setCustomerPhoto(null);
+    setRcFrontPhoto(null);
+    setRcBackPhoto(null);
     setCustomerSignature(null);
     setManagerSignature(null);
     setAcceptedTerms(false);
@@ -1614,87 +1568,29 @@ const Rcpage = ({navigation, route}) => {
   );
 
   // Render signature boxes with verify button at bottom
-  const renderSignatureBox = (
-    type,
-    image,
-    setImageFunction,
-    otpVerified,
-    onPress,
-    verifyButtonText,
-  ) => {
+  const renderOtpVerificationBox = (type, otpVerified, sendOtpFunction, sendingOtp, verifyButtonText) => {
     const isCustomer = type === 'customer';
-    const isManager = type === 'manager';
-    const sendingOtp = isCustomer ? sendingCustomerOtp : sendingManagerOtp;
-    const sendOtpFunction = isCustomer ? sendCustomerOtp : sendManagerOtp;
-
     return (
       <View style={styles.signatureBoxContainer}>
-        <TouchableOpacity
-          style={styles.photoSignatureBox1}
-          onPress={onPress}
-          disabled={loading}>
-          {image ? (
-            <Image
-              source={{uri: image.uri || image}}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <>
-              <Text style={styles.photoSignatureText}>
-                {isCustomer ? 'Customer Signature' : 'Manager Signature'}
-              </Text>
-              <View style={styles.otpIndicatorContainer}>
-                {otpVerified ? (
-                  <View style={[styles.otpIndicator, styles.otpVerified]}>
-                    <Icon name="check" size={12} color="#fff" />
-                    <Text style={styles.otpIndicatorText}>Verified</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.otpIndicator, styles.otpPending]}>
-                    <Icon name="info" size={12} color="#fff" />
-                    <Text style={styles.otpIndicatorText}>OTP Required</Text>
-                  </View>
-                )}
-              </View>
-              {isEditMode && (
-                <Text style={styles.optionalText}>(Optional for update)</Text>
-              )}
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Verify Button at bottom of signature box */}
-        {!otpVerified && (
+        {otpVerified ? (
+          <View style={styles.otpVerifiedMessageBox}>
+            <Icon name="check-circle" size={24} color="#4CAF50" />
+            <Text style={styles.otpVerifiedMessageText}>
+              {isCustomer
+                ? 'Customer Verified Using OTP\nPhysical Signature Not Required'
+                : 'Manager Verified Using OTP\nPhysical Signature Not Required'}
+            </Text>
+          </View>
+        ) : (
           <TouchableOpacity
-            style={[
-              styles.verifySignatureButton,
-              sendingOtp && styles.disabledButton,
-            ]}
+            style={[styles.verifySignatureButton, sendingOtp && styles.disabledButton]}
             onPress={sendOtpFunction}
             disabled={sendingOtp || loading}>
             {sendingOtp ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.verifySignatureButtonText}>
-                {verifyButtonText}
-              </Text>
+              <Text style={styles.verifySignatureButtonText}>{verifyButtonText}</Text>
             )}
-          </TouchableOpacity>
-        )}
-
-        {/* Upload Signature Button (only shown when OTP is verified) */}
-        {otpVerified && !image && (
-          <TouchableOpacity
-            style={[
-              styles.uploadSignatureButton,
-              loading && styles.disabledButton,
-            ]}
-            onPress={() => showImagePickerOptions(setImageFunction)}
-            disabled={loading}>
-            <Text style={styles.uploadSignatureButtonText}>
-              Upload Signature
-            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -2192,6 +2088,60 @@ const Rcpage = ({navigation, route}) => {
           </View>
         </View>
 
+        {/* PVC Card No. - Mandatory */}
+        <View style={styles.singleRow}>
+          <View style={styles.fullWidthContainer}>
+            <Text style={styles.radioLabel}>PVC Card No.:</Text>
+            <LinearGradient
+              colors={['#7E5EA9', '#20AEBC']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={styles.inputGradient}>
+              <TextInput
+                style={styles.input}
+                value={pvcCardNo}
+                onChangeText={text => setPvcCardNo(text)}
+                placeholder="PVC Card No. *"
+                placeholderTextColor="#666"
+                editable={!loading}
+                autoCapitalize="characters"
+                maxLength={100}
+              />
+            </LinearGradient>
+          </View>
+        </View>
+
+        {/* RC Front and Back Photos */}
+        <View style={styles.photoSignatureSection}>
+          <TouchableOpacity
+            style={styles.photoSignatureBox}
+            onPress={() => showImagePickerOptions(setRcFrontPhoto)}
+            disabled={loading}>
+            {rcFrontPhoto ? (
+              <Image source={{uri: rcFrontPhoto.uri || rcFrontPhoto}} style={styles.previewImage} resizeMode="contain" />
+            ) : (
+              <>
+                <Icon name="photo-camera" size={35} color="#666" />
+                <Text style={styles.photoSignatureText}>RC Front Photo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.photoSignatureBox}
+            onPress={() => showImagePickerOptions(setRcBackPhoto)}
+            disabled={loading}>
+            {rcBackPhoto ? (
+              <Image source={{uri: rcBackPhoto.uri || rcBackPhoto}} style={styles.previewImage} resizeMode="contain" />
+            ) : (
+              <>
+                <Icon name="photo-camera" size={35} color="#666" />
+                <Text style={styles.photoSignatureText}>RC Back Photo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Tractor Model Dropdown Modal */}
         <Modal
           visible={showModelDropdown}
@@ -2544,31 +2494,6 @@ const Rcpage = ({navigation, route}) => {
               )}
             </View>
           </View>
-        {/* PVC Card No. - Mandatory */}
-        <View style={styles.singleRow}>
-          <View style={styles.fullWidthContainer}>
-            <Text style={styles.radioLabel}>PVC Card No.:</Text>
-            <LinearGradient
-              colors={['#7E5EA9', '#20AEBC']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.inputGradient}>
-              <TextInput
-                style={styles.input}
-                value={pvcCardNo}
-                onChangeText={text => setPvcCardNo(text)}
-                placeholder="PVC Card No. *"
-                placeholderTextColor="#666"
-                editable={!loading}
-                autoCapitalize="characters"
-                maxLength={100}
-              />
-            </LinearGradient>
-          </View>
-        </View>
-
-
-
           {/* Are Tractor Owner */}
           <View style={styles.radioGroup}>
             <Text style={styles.radioLabel}>Are Tractor Owner:</Text>
@@ -2888,23 +2813,21 @@ const Rcpage = ({navigation, route}) => {
             )}
           </TouchableOpacity>
 
-          {/* Customer Signature with Verify Button */}
-          {renderSignatureBox(
+          {/* Customer OTP Verification Status */}
+          {renderOtpVerificationBox(
             'customer',
-            customerSignature,
-            setCustomerSignature,
             customerOtpVerified,
-            handleCustomerSignaturePress,
+            sendCustomerOtp,
+            sendingCustomerOtp,
             'Verify Customer OTP',
           )}
 
-          {/* Manager Signature with Verify Button */}
-          {renderSignatureBox(
+          {/* Manager OTP Verification Status */}
+          {renderOtpVerificationBox(
             'manager',
-            managerSignature,
-            setManagerSignature,
             managerOtpVerified,
-            handleManagerSignaturePress,
+            sendManagerOtp,
+            sendingManagerOtp,
             'Verify Manager OTP',
           )}
         </View>
@@ -3129,6 +3052,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_28pt-Medium',
   },
   // Signature Box Container
+  otpVerifiedMessageBox: {
+    minHeight: 90,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 10,
+    backgroundColor: '#F1F8F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpVerifiedMessageText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    color: '#2E7D32',
+    fontFamily: 'Inter_28pt-Medium',
+  },
   signatureBoxContainer: {
     marginBottom: 20,
   },
