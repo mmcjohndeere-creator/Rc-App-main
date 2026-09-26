@@ -32,13 +32,12 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
-      - name: Build Android Release APK
+      - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Makroo-RC-App-APK
+          name: RC-App-Release-APK
           path: android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
